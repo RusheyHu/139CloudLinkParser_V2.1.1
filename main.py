@@ -429,11 +429,12 @@ class MainWindow(QMainWindow):
         self.path_layout = QHBoxLayout(self.path_container)
         self.path_layout.setContentsMargins(0, 0, 0, 0)
         self.path_layout.setSpacing(4)
-        self.update_breadcrumb()
+        # Create navigation control before any breadcrumb refresh can run.
+        self.up_btn = QPushButton("返回上级")
+        self.up_btn.clicked.connect(self.go_parent)
         self.search_box = QLineEdit(); self.search_box.setPlaceholderText("搜索当前目录文件名称…")
         self.search_box.textChanged.connect(self.filter_personal_table)
         self.refresh_btn = QPushButton("刷新列表"); self.refresh_btn.clicked.connect(self.load_personal_files)
-        self.up_btn = QPushButton("返回上级"); self.up_btn.clicked.connect(self.go_parent)
         toolbar.addWidget(self.path_container, 3); toolbar.addWidget(self.search_box, 3); toolbar.addWidget(self.up_btn); toolbar.addWidget(self.refresh_btn)
         pv.addLayout(toolbar)
         self.personal_table = QTableWidget(0, 5)
@@ -486,6 +487,7 @@ class MainWindow(QMainWindow):
         foot = QLabel("安全提示：登录凭证仅保存在当前 Windows 用户目录；不要分享 cookies.json。直链可能过期，请获取后及时使用。")
         foot.setWordWrap(True); foot.setStyleSheet("color:#94a3b8;font-size:11px")
         layout.addWidget(foot)
+        self.update_breadcrumb()
         self.load_example()
         if (STATE_DIR / "cookies.json").exists():
             self.login_status.setText("登录状态：已保存登录信息")
@@ -600,7 +602,9 @@ class MainWindow(QMainWindow):
             button.clicked.connect(lambda checked=False, target=index: self.navigate_to_path(target))
             self.path_layout.addWidget(button)
         self.path_layout.addStretch(1)
-        self.up_btn.setEnabled(len(self.current_path) > 1)
+        # Defensive guard: early breadcrumb refresh must never crash startup.
+        if hasattr(self, "up_btn"):
+            self.up_btn.setEnabled(len(self.current_path) > 1)
 
     def navigate_to_path(self, index):
         if index < 0 or index >= len(self.current_path):
